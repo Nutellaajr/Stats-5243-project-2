@@ -223,6 +223,10 @@ def map_rule_server(input, output, session, data):
             error_msg.set("New field name cannot be empty.")
             return
 
+        if not re.fullmatch(r"[A-Za-z0-9_]+", new_name):
+            error_msg.set("New field name may only contain letters, digits, and underscores.")
+            return
+
         if not raw_out:
             error_msg.set("Assign value cannot be empty.")
             return
@@ -416,6 +420,9 @@ def binning_server(input, output, session, data):
             return
         if not new_col:
             error_msg.set("New field name cannot be empty.")
+            return
+        if not re.fullmatch(r"[A-Za-z0-9_]+", new_col):
+            error_msg.set("New field name may only contain letters, digits, and underscores.")
             return
         if not raw_cut:
             error_msg.set("Please enter at least one cutoff.")
