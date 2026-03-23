@@ -30,13 +30,24 @@ def upload_ui():
     """
     UI for the data upload section.
     """
-    return ui.card(
-        ui.card_header("Upload Dataset"),
-        ui.input_file(
-            "file_upload",
-            "Choose a dataset",
-            accept=[".csv", ".xlsx", ".xls", ".json"],
-            multiple=False,
+    return ui.page_fluid(
+        ui.card(
+            ui.card_header("Upload Dataset"),
+            ui.input_file(
+                "file_upload",
+                "Choose a dataset",
+                accept=[".csv", ".xlsx", ".xls", ".json"],
+                multiple=False,
+            ),
+            ui.p("Supported formats: CSV, Excel, JSON"),
+            ui.output_text_verbatim("upload_status"),
         ),
-        ui.p("Supported formats: CSV, Excel, JSON"),
+        ui.layout_columns(
+            ui.card(
+                ui.card_header("Data Preview"),
+                ui.output_data_frame("data_preview"),
+                full_screen=True,
+            ),
+            col_widths=[12],
+        ),
     )

@@ -1,6 +1,44 @@
 from shiny import App, reactive, render, ui
 from modules.data_loader import load_data, upload_ui
 from modules.cleaning import apply_cleaning, cleaning_ui
+from modules.feature_engineering import (
+    map_rule_ui, map_rule_server,
+    binning_ui, binning_server,
+    ohe_ui, ohe_server,
+)
+
+locate_col_js = """
+function _getHeaders() {
+    const container = document.getElementById('fe_preview');
+    const scope = container || document;
+    // render.data_frame uses div[role="columnheader"]; plain render.table uses <th>
+    return Array.from(scope.querySelectorAll('th, [role="columnheader"]'));
+}
+function _highlight(el) {
+    el.style.transition = 'background 0.4s';
+    el.style.background = '#fef08a';
+    setTimeout(() => { el.style.background = ''; }, 1800);
+}
+function locateColumn(colName) {
+    const found = _getHeaders().find(h => h.textContent.trim() === colName);
+    if (!found) {
+        alert('Column "' + colName + '" not found in preview. Make sure the rule is enabled and the preview has loaded.');
+        return;
+    }
+    found.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    _highlight(found);
+}
+function locateColumns(colNames) {
+    const colSet = new Set(colNames);
+    const matches = _getHeaders().filter(h => colSet.has(h.textContent.trim()));
+    if (!matches.length) {
+        alert('Columns not found in preview. Make sure the rule is enabled and the preview has loaded.');
+        return;
+    }
+    matches[0].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    matches.forEach(_highlight);
+}
+"""
 
 custom_css = """
 body {
@@ -83,6 +121,25 @@ body {
     padding-top: 10px;
     padding-bottom: 30px;
 }
+
+.map-rule-card .form-check,
+.binning-card .form-check,
+.ohe-card .form-check {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    width: 100%;
+}
+
+.map-rule-card .form-check-label,
+.binning-card .form-check-label,
+.ohe-card .form-check-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1;
+}
 """
 
 navbar_content = ui.page_navbar(
@@ -99,13 +156,6 @@ navbar_content = ui.page_navbar(
                 ),
             ),
             upload_ui(),
-            ui.h2("Dataset Preview", {"class": "section-title"}),
-            ui.p(
-                "Upload a dataset to inspect its size and preview the first few rows.",
-                {"class": "section-text"}
-            ),
-            ui.output_text_verbatim("upload_status"),
-            ui.output_table("data_preview"),
         )
     ),
     ui.nav_panel(
@@ -117,11 +167,29 @@ navbar_content = ui.page_navbar(
         ui.div(
             {"class": "main-container"},
             ui.h2("Feature Engineering", {"class": "section-title"}),
-            ui.div(
-                {"class": "placeholder-box"},
-                ui.p("This section will be implemented by Person C."),
-                ui.p("Suggested features: create new variables, transformations, binning, and feature previews.")
-            )
+            ui.accordion(
+                ui.accordion_panel(
+                    "Numerical Field Transformation (Map)",
+                    map_rule_ui("map_rule"),
+                ),
+                ui.accordion_panel(
+                    "Binning",
+                    binning_ui("binning"),
+                ),
+                ui.accordion_panel(
+                    "One-Hot Encoding",
+                    ohe_ui("ohe"),
+                ),
+                open=True,
+            ),
+            ui.layout_columns(
+                ui.card(
+                    ui.card_header("Feature Engineered Data Preview"),
+                    ui.output_data_frame("fe_preview"),
+                    full_screen=True,
+                ),
+                col_widths=[12],
+            ),
         )
     ),
     ui.nav_panel(
@@ -141,7 +209,8 @@ navbar_content = ui.page_navbar(
 
 app_ui = ui.page_fluid(
     ui.tags.head(
-        ui.tags.style(custom_css)
+        ui.tags.style(custom_css),
+        ui.tags.script(locate_col_js),
     ),
     navbar_content
 )
@@ -158,6 +227,26 @@ def server(input, output, session):
         df = dataset()
         return apply_cleaning(df, input)
 
+    @reactive.calc
+    def cleaned_df():
+        result = cleaned_result()
+        if result is None:
+            return None
+        df, _ = result
+        return df
+
+    map_rule_result = map_rule_server("map_rule", data=cleaned_df)
+    binning_result  = binning_server("binning",   data=map_rule_result)
+    ohe_result      = ohe_server("ohe",           data=binning_result)
+
+    @output
+    @render.data_frame
+    def fe_preview():
+        df = ohe_result()
+        if df is None:
+            return None
+        return df.head()
+
     @output
     @render.text
     def upload_status():
@@ -167,7 +256,7 @@ def server(input, output, session):
         return f"Upload successful. Rows: {df.shape[0]}, Columns: {df.shape[1]}"
 
     @output
-    @render.table
+    @render.data_frame
     def data_preview():
         df = dataset()
         if df is None:
