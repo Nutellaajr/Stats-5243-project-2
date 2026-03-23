@@ -144,10 +144,19 @@ def map_rule_server(input, output, session, data):
     def _update_fields():
         df = data()
         if df is None:
+            ui.update_select("field_menu", choices=[], selected=None, session=session)
             return
+
         numeric_cols = df.select_dtypes(include="number").columns.tolist()
-        ui.update_select("field_menu", choices=numeric_cols,
-                         session=session)
+
+        selected_col = numeric_cols[0] if numeric_cols else None
+
+        ui.update_select(
+            "field_menu",
+            choices=numeric_cols,
+            selected=selected_col,
+            session=session
+        )
 
     # Compute mean/median when field_menu or val_menu changes
     @reactive.calc
@@ -155,10 +164,15 @@ def map_rule_server(input, output, session, data):
         df = data()
         if df is None:
             return None
-        col    = input.field_menu()
+        col = input.field_menu()
         method = input.val_menu()
+        if df is None:
+            return None
         if not col or method == "custom":
             return None
+        if col not in df.columns:
+            return None
+
         series = df[col].dropna()
         if method == "mean":
             return float(series.mean())

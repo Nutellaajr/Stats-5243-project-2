@@ -1,5 +1,5 @@
 from shiny import App, reactive, render, ui
-from modules.data_loader import load_data, upload_ui
+from modules.data_loader import load_data, upload_ui, load_default_data
 from modules.cleaning import (
     apply_cleaning,
     cleaning_ui,
@@ -181,6 +181,7 @@ body {
 """
 
 navbar_content = ui.page_navbar(
+   
     ui.nav_panel(
         "Upload",
         ui.div(
@@ -196,6 +197,7 @@ navbar_content = ui.page_navbar(
             upload_ui(),
         )
     ),
+
     ui.nav_panel(
         "Cleaning",
         cleaning_ui()
@@ -249,8 +251,18 @@ app_ui = ui.page_fluid(
 def server(input, output, session):
     @reactive.calc
     def dataset():
+        source = input.data_source()
         file_info = input.file_upload()
-        return load_data(file_info)
+
+        if source == "sample":
+            return load_default_data()
+
+        if source == "upload" and file_info is not None:
+            df = load_data(file_info)
+            if df is not None:
+                return df
+
+        return None
 
     @reactive.calc
     def cleaned_result():
@@ -305,22 +317,31 @@ def server(input, output, session):
             return None
         return df.head()
 
+    
     @output
     @render.text
     def upload_status():
         df = dataset()
+        source = input.data_source()
+
         if df is None:
-            return "No dataset uploaded yet."
+            if source == "upload":
+                return "No dataset uploaded yet."
+            return "Sample dataset could not be loaded."
+
+        if source == "sample":
+            return f"Using built-in Iris dataset. Rows: {df.shape[0]}, Columns: {df.shape[1]}"
+
         return f"Upload successful. Rows: {df.shape[0]}, Columns: {df.shape[1]}"
 
     @output
-    @render.data_frame
+    @render.table
     def data_preview():
         df = dataset()
         if df is None:
             return None
         return df.head()
-
+    
     @output
     @render.text
     def cleaning_summary():

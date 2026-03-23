@@ -1,6 +1,6 @@
 from shiny import ui
 import pandas as pd
-
+import os
 
 def load_data(file_info):
     """
@@ -25,29 +25,58 @@ def load_data(file_info):
     except Exception:
         return None
 
+def load_default_data():
+    """
+    Load built-in dataset (iris).
+    """
+    file_path = os.path.join(os.getcwd(), "iris_data.csv")
+    try:
+        return pd.read_csv(file_path)
+    except Exception:
+        return None
 
 def upload_ui():
     """
     UI for the data upload section.
     """
     return ui.page_fluid(
-        ui.card(
-            ui.card_header("Upload Dataset"),
-            ui.input_file(
-                "file_upload",
-                "Choose a dataset",
-                accept=[".csv", ".xlsx", ".xls", ".json"],
-                multiple=False,
-            ),
-            ui.p("Supported formats: CSV, Excel, JSON"),
-            ui.output_text_verbatim("upload_status"),
-        ),
         ui.layout_columns(
             ui.card(
-                ui.card_header("Data Preview"),
-                ui.output_data_frame("data_preview"),
+                ui.card_header("Upload Dataset"),
+                ui.p("Upload your own dataset or use a built-in sample dataset to explore the app."),
+
+                ui.input_radio_buttons(
+                    "data_source",
+                    "Choose data source",
+                    {
+                        "upload": "Upload Your Own File",
+                        "sample": "Use Sample Dataset (Iris)",
+                    },
+                    selected="upload",
+                ),
+
+                ui.div(
+                    ui.input_file(
+                        "file_upload",
+                        "Choose a dataset",
+                        accept=[".csv", ".xlsx", ".xls", ".json"],
+                        multiple=False,
+                    ),
+                ),
+
+                ui.br(),
+                ui.p("Supported formats: CSV, Excel, JSON"),
+                ui.output_text_verbatim("upload_status"),
+                full_screen=False,
+            ),
+
+            ui.card(
+                ui.card_header("Dataset Preview"),
+                ui.p("Preview the first few rows of the currently loaded dataset."),
+                ui.output_table("data_preview"),
                 full_screen=True,
             ),
-            col_widths=[12],
-        ),
+
+            col_widths=[4, 8],
+        )
     )
