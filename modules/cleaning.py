@@ -9,7 +9,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
 def _make_unique(names: list[str]) -> list[str]:
-    """Ensure column names remain unique after cleaning."""
+    """Ensure column names stay unique after cleaning."""
     seen: dict[str, int] = {}
     result: list[str] = []
 
@@ -39,7 +39,7 @@ def _standardize_column_names(columns: Iterable) -> list[str]:
 
 
 def _build_column_mapping(original_cols: list[str], cleaned_cols: list[str]) -> dict[str, str]:
-    """Map original column names to their standardized versions."""
+    """Map original column names to standardized names."""
     return {str(old): str(new) for old, new in zip(original_cols, cleaned_cols)}
 
 
@@ -116,7 +116,7 @@ def _missing_summary(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _get_categorical_columns(df: pd.DataFrame) -> list[str]:
-    """Return columns that are suitable for one-hot encoding."""
+    """Return columns suitable for one-hot encoding."""
     if df is None:
         return []
 
@@ -144,6 +144,9 @@ def cleaning_ui():
                 ui.accordion(
                     ui.accordion_panel(
                         "1 · Standardization",
+                        ui.tags.small(
+                            "Standardize column names and remove extra whitespace so downstream analysis is easier to manage."
+                        ),
                         ui.input_checkbox(
                             "standardize_names",
                             "Standardize column names (snake_case)",
@@ -157,6 +160,9 @@ def cleaning_ui():
                     ),
                     ui.accordion_panel(
                         "2 · Duplicates",
+                        ui.tags.small(
+                            "Detect and remove duplicate rows before further preprocessing."
+                        ),
                         ui.input_checkbox(
                             "remove_duplicates",
                             "Remove duplicate rows",
@@ -165,6 +171,9 @@ def cleaning_ui():
                     ),
                     ui.accordion_panel(
                         "3 · Missing Values",
+                        ui.tags.small(
+                            "Choose whether to remove missing data or impute it with summary statistics."
+                        ),
                         ui.input_select(
                             "missing_strategy",
                             "Strategy",
@@ -194,6 +203,9 @@ def cleaning_ui():
                     ),
                     ui.accordion_panel(
                         "4 · Scaling",
+                        ui.tags.small(
+                            "Scale numeric variables when features are on very different ranges."
+                        ),
                         ui.input_select(
                             "scaling_method",
                             "Method",
@@ -213,6 +225,9 @@ def cleaning_ui():
                     ),
                     ui.accordion_panel(
                         "5 · Encoding",
+                        ui.tags.small(
+                            "Convert categorical variables into numeric indicators for downstream modeling."
+                        ),
                         ui.input_checkbox(
                             "encode_categorical",
                             "One-hot encode categorical columns",
@@ -226,7 +241,27 @@ def cleaning_ui():
                         ),
                     ),
                     ui.accordion_panel(
-                        "6 · Outliers",
+                        "6 · Transformations",
+                        ui.tags.small(
+                            "Optional transformations can help reduce skewness. Log transform is applied only to strictly positive numeric columns."
+                        ),
+                        ui.input_checkbox(
+                            "apply_log_transform",
+                            "Apply log transform",
+                            value=False,
+                        ),
+                        ui.input_selectize(
+                            "log_cols",
+                            "Columns to transform (leave blank = none)",
+                            choices=[],
+                            multiple=True,
+                        ),
+                    ),
+                    ui.accordion_panel(
+                        "7 · Outliers",
+                        ui.tags.small(
+                            "Use the IQR rule to either cap extreme values or remove rows containing outliers."
+                        ),
                         ui.input_checkbox(
                             "handle_outliers",
                             "Handle outliers with the IQR rule",
@@ -462,6 +497,46 @@ def apply_cleaning(df: pd.DataFrame, input) -> tuple[pd.DataFrame | None, list[s
             log.append("Encoding skipped because no eligible categorical columns were found.")
     else:
         log.append("Categorical encoding skipped.")
+
+    if input.apply_log_transform():
+        selected_log_cols = _map_selected_columns(
+            input.log_cols(),
+            col_map,
+            cleaned.columns.tolist(),
+        )
+
+        if selected_log_cols:
+            valid_log_cols = [
+                col for col in selected_log_cols
+                if pd.api.types.is_numeric_dtype(cleaned[col])
+            ]
+        else:
+            valid_log_cols = []
+
+        transformed_cols = []
+        skipped_cols = []
+
+        for col in valid_log_cols:
+            series = cleaned[col]
+            if series.notna().all() and (series > 0).all():
+                cleaned[col] = np.log(series)
+                transformed_cols.append(col)
+            else:
+                skipped_cols.append(col)
+
+        if transformed_cols:
+            log.append(f"Applied log transform to: {', '.join(transformed_cols)}.")
+        elif input.log_cols():
+            log.append("Log transform skipped because selected columns were not valid strictly positive numeric variables.")
+        else:
+            log.append("Log transform selected, but no columns were chosen.")
+
+        if skipped_cols:
+            log.append(
+                f"Skipped log transform for non-positive or missing-value columns: {', '.join(skipped_cols)}."
+            )
+    else:
+        log.append("Log transform skipped.")
 
     if input.handle_outliers():
         multiplier = float(input.iqr_multiplier())
