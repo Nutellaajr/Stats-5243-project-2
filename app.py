@@ -1,8 +1,14 @@
 from shiny import App, reactive, render, ui
 from modules.data_loader import load_data, upload_ui
-from modules.cleaning import apply_cleaning, cleaning_ui
+from modules.cleaning import (
+    apply_cleaning,
+    cleaning_ui,
+    build_missing_summary,
+    get_numeric_columns,
+    get_categorical_columns,
+    cleaning_download_handler,
+)
 
-#new:
 from modules.eda import eda_ui, eda_server
 
 from modules.feature_engineering import (
@@ -15,7 +21,6 @@ locate_col_js = """
 function _getHeaders() {
     const container = document.getElementById('fe_preview');
     const scope = container || document;
-    // render.data_frame uses div[role="columnheader"]; plain render.table uses <th>
     return Array.from(scope.querySelectorAll('th, [role="columnheader"]'));
 }
 function _highlight(el) {
@@ -144,6 +149,7 @@ body {
     min-width: 0;
     flex: 1;
 }
+
 .eda-var-group {
     margin-bottom: 18px;
 }
@@ -225,9 +231,9 @@ navbar_content = ui.page_navbar(
         )
     ),
     ui.nav_panel(
-    "EDA",
-    eda_ui()),
-
+        "EDA",
+        eda_ui()
+    ),
     title="Project 2 Data App",
 )
 
@@ -259,11 +265,29 @@ def server(input, output, session):
         df, _ = result
         return df
 
-    map_rule_result = map_rule_server("map_rule", data=cleaned_df)
-    binning_result  = binning_server("binning",   data=map_rule_result)
-    ohe_result      = ohe_server("ohe",           data=binning_result)
+    @reactive.effect
+    def _update_cleaning_choices():
+        df = dataset()
 
-    # new:
+        if df is None:
+            ui.update_selectize("scale_cols", choices=[], selected=[])
+            ui.update_selectize("encode_cols", choices=[], selected=[])
+            ui.update_selectize("log_cols", choices=[], selected=[])
+            ui.update_selectize("outlier_cols", choices=[], selected=[])
+            return
+
+        numeric_cols = get_numeric_columns(df)
+        categorical_cols = get_categorical_columns(df)
+
+        ui.update_selectize("scale_cols", choices=numeric_cols, selected=[])
+        ui.update_selectize("encode_cols", choices=categorical_cols, selected=[])
+        ui.update_selectize("log_cols", choices=numeric_cols, selected=[])
+        ui.update_selectize("outlier_cols", choices=numeric_cols, selected=[])
+
+    map_rule_result = map_rule_server("map_rule", data=cleaned_df)
+    binning_result = binning_server("binning", data=map_rule_result)
+    ohe_result = ohe_server("ohe", data=binning_result)
+
     eda_server(
         input=input,
         output=output,
@@ -297,16 +321,18 @@ def server(input, output, session):
             return None
         return df.head()
 
-
-    
     @output
     @render.text
     def cleaning_summary():
-        cleaned_df, log = cleaned_result()
-        if log is None:
+        result = cleaned_result()
+        if result is None:
             return "No cleaning steps applied."
-        return "\n".join(log)
 
+        _, log = result
+        if not log:
+            return "No cleaning steps applied."
+
+        return "\n".join(log)
 
     @output
     @render.data_frame
@@ -314,32 +340,24 @@ def server(input, output, session):
         df = dataset()
         if df is None:
             return None
-
-        missing = df.isna().sum().to_frame(name="missing_count")
-        missing["missing_pct"] = missing["missing_count"] / len(df)
-        return missing
-
+        return build_missing_summary(df)
 
     @output
     @render.data_frame
     def missing_table_cleaned():
-        cleaned_df, log = cleaned_result()
-        if cleaned_df is None:
+        df = cleaned_df()
+        if df is None:
             return None
-
-        missing = cleaned_df.isna().sum().to_frame(name="missing_count")
-        missing["missing_pct"] = missing["missing_count"] / len(cleaned_df)
-        return missing
-
+        return build_missing_summary(df)
 
     @output
     @render.data_frame
     def cleaned_preview():
-        cleaned_df, log = cleaned_result()
-        if cleaned_df is None:
+        df = cleaned_df()
+        if df is None:
             return None
-        return cleaned_df.head()
-    
+        return df.head()
+
     @output
     @render.text
     def raw_rows():
@@ -351,19 +369,19 @@ def server(input, output, session):
     @output
     @render.text
     def clean_rows():
-        cleaned_df, log = cleaned_result()
-        if cleaned_df is None:
+        df = cleaned_df()
+        if df is None:
             return "-"
-        return str(cleaned_df.shape[0])
+        return str(df.shape[0])
 
     @output
     @render.text
     def rows_removed():
-        df = dataset()
-        cleaned_df, log = cleaned_result()
-        if df is None or cleaned_df is None:
+        raw_df = dataset()
+        clean_df = cleaned_df()
+        if raw_df is None or clean_df is None:
             return "-"
-        return str(df.shape[0] - cleaned_df.shape[0])
+        return str(raw_df.shape[0] - clean_df.shape[0])
 
     @output
     @render.text
@@ -376,10 +394,10 @@ def server(input, output, session):
     @output
     @render.text
     def clean_cols():
-        cleaned_df, log = cleaned_result()
-        if cleaned_df is None:
+        df = cleaned_df()
+        if df is None:
             return "-"
-        return str(cleaned_df.shape[1])
+        return str(df.shape[1])
 
     @output
     @render.text
@@ -392,10 +410,10 @@ def server(input, output, session):
     @output
     @render.text
     def clean_missing():
-        cleaned_df, log = cleaned_result()
-        if cleaned_df is None:
+        df = cleaned_df()
+        if df is None:
             return "-"
-        return str(int(cleaned_df.isna().sum().sum()))
+        return str(int(df.isna().sum().sum()))
 
     @output
     @render.text
@@ -408,11 +426,15 @@ def server(input, output, session):
     @output
     @render.text
     def clean_dupes():
-        cleaned_df, log = cleaned_result()
-        if cleaned_df is None:
+        df = cleaned_df()
+        if df is None:
             return "-"
-        return str(int(cleaned_df.duplicated().sum()))
-    
+        return str(int(df.duplicated().sum()))
+
+    @output
+    @render.download(filename="cleaned_data.csv")
+    def download_cleaned():
+        yield cleaning_download_handler(cleaned_df())
 
 
 app = App(app_ui, server)
