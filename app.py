@@ -416,20 +416,21 @@ def server(input, output, session):
         if df is None:
             ui.update_selectize("scale_cols", choices=[], selected=[])
             ui.update_selectize("encode_cols", choices=[], selected=[])
+            ui.update_selectize("dtype_cols", choices=[], selected=[])
             ui.update_selectize("log_cols", choices=[], selected=[])
             ui.update_selectize("outlier_cols", choices=[], selected=[])
             ui.update_selectize("filter_col", choices=[], selected=[])
             return
 
         numeric_cols = get_numeric_columns(df)
-        categorical_cols = get_categorical_columns(df)
 
         ui.update_selectize("scale_cols", choices=numeric_cols, selected=[])
-        ui.update_selectize("encode_cols", choices=categorical_cols, selected=[])
+        ui.update_selectize("encode_cols", choices=df.columns.tolist(), selected=[])
+        ui.update_selectize("dtype_cols", choices=df.columns.tolist(), selected=[])
         ui.update_selectize("log_cols", choices=numeric_cols, selected=[])
         ui.update_selectize("outlier_cols", choices=numeric_cols, selected=[])
         ui.update_selectize("filter_col", choices=df.columns.tolist(), selected=[])
-
+        
     map_rules  = map_rule_server("map_rule", data=cleaned_df)
     bin_rules  = binning_server("binning", data=cleaned_df)
     ohe_fields = ohe_server("ohe", data=cleaned_df)
