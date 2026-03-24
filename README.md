@@ -21,7 +21,7 @@ It supports multiple data formats and provides real-time updates as users intera
 
 ### 1. Data Upload
 - Upload datasets in **CSV, Excel, or JSON** format
-- Use a built-in sample dataset (Iris) for quick testing
+- Or use a built-in sample dataset (Iris) for quick testing
 - Preview uploaded data instantly
 
 ---
