@@ -246,8 +246,8 @@ navbar_content = ui.page_navbar(
                 ui.card(
                     ui.card_header("⚙️ Feature Engineering"),
                     ui.p("Create new variables and transform existing ones through mapping, binning, "
-                    "encoding, and other feature construction methods. This module helps users "
-                    "improve interpretability and generate features that better support analysis."),
+                    "encoding, and log transformation. This module helps users improve interpretability "
+                    "and generate features that better support analysis."),
                 ),
 
                 ui.card(
