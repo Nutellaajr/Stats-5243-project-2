@@ -36,10 +36,10 @@ It supports multiple data formats and provides real-time updates as users intera
 ---
 
 ### 3. Feature Engineering
-- Create new variables using conditional rules
-- Apply transformations to numerical fields
-- Perform binning on continuous variables
-- One-hot encode categorical features
+- Apply mapping to numerical fields
+- Perform binning on continuous data
+- One-hot encode categorical fields
+- Log transform numerical fields
 
 ---
 
