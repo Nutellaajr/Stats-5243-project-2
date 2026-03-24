@@ -745,8 +745,3 @@ def get_numeric_columns(df: pd.DataFrame) -> list[str]:
 def get_categorical_columns(df: pd.DataFrame) -> list[str]:
     """Return categorical columns for UI selection controls."""
     return _get_categorical_columns(df)
-
-def get_categorical_columns(df: pd.DataFrame) -> list[str]:
-    """Return categorical columns for UI selection controls."""
-    return _get_categorical_columns(df)
-    
