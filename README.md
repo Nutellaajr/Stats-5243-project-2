@@ -53,7 +53,7 @@ It supports multiple data formats and provides real-time updates as users intera
 
 ## 🛠️ Project Structure
 ```
-Stats-5243-project-2/
+DataLytiq/
 │
 ├── app.py # Main Shiny app entry point
 ├── README.md
