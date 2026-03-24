@@ -188,7 +188,6 @@ body {
     margin-bottom: 10px;
 }
 
-
 .card {
     border-radius: 12px;
 }

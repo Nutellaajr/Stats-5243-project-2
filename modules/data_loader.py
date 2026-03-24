@@ -53,44 +53,43 @@ def upload_ui():
     """
     UI for the data upload section.
     """
-    return ui.page_fluid(
-        ui.layout_columns(
-            ui.card(
-                ui.card_header("Upload Dataset"),
-                ui.p("Upload your own dataset or use a built-in sample dataset to explore the app."),
+    return ui.layout_columns(
+        ui.card(
+            ui.card_header("Upload Dataset"),
+            ui.p("Upload your own dataset or use a built-in sample dataset to explore the app."),
 
-                ui.input_radio_buttons(
-                    "data_source",
-                    "Choose data source",
-                    {
-                        "upload": "Upload Your Own File",
-                        "sample": "Use Sample Dataset (Iris)",
-                    },
-                    selected="upload",
-                ),
-
-                ui.div(
-                    ui.input_file(
-                        "file_upload",
-                        "Choose a dataset",
-                        accept=[".csv", ".xlsx", ".xls", ".json"],
-                        multiple=False,
-                    ),
-                ),
-
-                ui.br(),
-                ui.p("Supported formats: CSV, Excel, JSON"),
-                ui.output_text_verbatim("upload_status"),
-                full_screen=False,
+            ui.input_radio_buttons(
+                "data_source",
+                "Choose data source",
+                {
+                    "upload": "Upload Your Own File",
+                    "sample": "Use Sample Dataset (Iris)",
+                },
+                selected="upload",
             ),
 
-            ui.card(
-                ui.card_header("Dataset Preview"),
-                ui.p("Preview the first few rows of the currently loaded dataset."),
-                ui.output_table("data_preview"),
-                full_screen=True,
+            ui.input_file(
+                "file_upload",
+                "Choose a dataset",
+                accept=[".csv", ".xlsx", ".xls", ".json"],
+                multiple=False,
+                width="100%",
             ),
 
-            col_widths=[4, 8],
-        )
+            ui.br(),
+            ui.p("Supported formats: CSV, Excel, JSON"),
+            ui.output_text_verbatim("upload_status"),
+            full_screen=False,
+            style="min-width: 360px;",
+        ),
+
+        ui.card(
+            ui.card_header("Dataset Preview"),
+            ui.p("Preview the first few rows of the currently loaded dataset."),
+            ui.output_table("data_preview"),
+            full_screen=True,
+            style="min-width: 0;",
+        ),
+
+        col_widths=[5, 7],
     )
