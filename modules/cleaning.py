@@ -241,7 +241,35 @@ def cleaning_ui():
                         ),
                     ),
                     ui.accordion_panel(
-                        "6 · Transformations",
+                        "6 · Data Type Conversion",
+                        ui.tags.small(
+                            "Convert selected columns to a target type. This is useful when numeric codes actually represent categories."
+                        ),
+                        ui.input_checkbox(
+                            "convert_dtype",
+                            "Convert data type",
+                            value=False,
+                        ),
+                        ui.input_selectize(
+                            "dtype_cols",
+                            "Columns to convert",
+                            choices=[],
+                            multiple=True,
+                        ),
+                        ui.input_select(
+                            "dtype_target",
+                            "Target type",
+                            {
+                                "category": "Category",
+                                "string": "String",
+                                "integer": "Integer",
+                                "float": "Float",
+                            },
+                            selected="category",
+                        ),
+                    ),
+                    ui.accordion_panel(
+                        "7 · Transformations",
                         ui.tags.small(
                             "Optional transformations can help reduce skewness. Log transform is applied only to strictly positive numeric columns."
                         ),
@@ -258,7 +286,7 @@ def cleaning_ui():
                         ),
                     ),
                     ui.accordion_panel(
-                        "7 · Outliers",
+                        "8 · Outliers",
                         ui.tags.small(
                             "Use the IQR rule to either cap extreme values or remove rows containing outliers."
                         ),
@@ -292,10 +320,9 @@ def cleaning_ui():
                         ),
                     ),
                     ui.accordion_panel(
-                        "8 · Value Filtering",
+                        "9 · Value Filtering",
                         ui.tags.small(
-                            "Drop rows where a specific column contains one or more exact values. "
-                            "Add multiple rules; uncheck any to disable it."
+                            "Drop rows where a specific column contains one or more exact values. Add multiple rules; uncheck any to disable it."
                         ),
                         ui.input_selectize(
                             "filter_col",
@@ -469,6 +496,46 @@ def apply_cleaning(df: pd.DataFrame, input, filter_rules=None) -> tuple[pd.DataF
     else:
         log.append("Missing values left unchanged.")
 
+    if input.convert_dtype():
+        selected_dtype_cols = _map_selected_columns(
+            input.dtype_cols(),
+            col_map,
+            cleaned.columns.tolist(),
+        )
+        target_type = input.dtype_target()
+
+        converted_cols = []
+        skipped_cols = []
+
+        for col in selected_dtype_cols:
+            try:
+                if target_type == "category":
+                    cleaned[col] = cleaned[col].astype("category")
+                elif target_type == "string":
+                    cleaned[col] = cleaned[col].astype("string")
+                elif target_type == "integer":
+                    cleaned[col] = pd.to_numeric(cleaned[col], errors="raise").astype("Int64")
+                elif target_type == "float":
+                    cleaned[col] = pd.to_numeric(cleaned[col], errors="raise").astype(float)
+
+                converted_cols.append(col)
+            except Exception:
+                skipped_cols.append(col)
+
+        if converted_cols:
+            log.append(
+                f"Converted {len(converted_cols)} column(s) to {target_type}: {', '.join(converted_cols)}."
+            )
+        elif input.dtype_cols():
+            log.append("Data type conversion skipped because the selected columns could not be converted.")
+        else:
+            log.append("Data type conversion selected, but no columns were chosen.")
+
+        if skipped_cols:
+            log.append(f"Skipped data type conversion for: {', '.join(skipped_cols)}.")
+    else:
+        log.append("Data type conversion skipped.")
+
     scaling_method = input.scaling_method()
     selected_scale_cols = _map_selected_columns(
         input.scale_cols(),
@@ -513,7 +580,7 @@ def apply_cleaning(df: pd.DataFrame, input, filter_rules=None) -> tuple[pd.DataF
             cat_cols = _get_categorical_columns(cleaned)
 
         if cat_cols:
-            cleaned = pd.get_dummies(cleaned, columns=cat_cols, drop_first=False)
+            cleaned = pd.get_dummies(cleaned, columns=cat_cols, drop_first=False, dtype=int)
             log.append(
                 f"One-hot encoded {len(cat_cols)} categorical column(s): {', '.join(cat_cols)}."
             )
@@ -624,13 +691,13 @@ def apply_cleaning(df: pd.DataFrame, input, filter_rules=None) -> tuple[pd.DataF
         log.append("Outlier handling skipped.")
 
     active_filter_rules = filter_rules or []
-    applied_any_filter = False
 
     for i, rule in enumerate(active_filter_rules):
         try:
             enabled = bool(input[f"filter_rule_{i}"]())
         except Exception:
             enabled = True
+
         if not enabled:
             continue
 
@@ -644,23 +711,9 @@ def apply_cleaning(df: pd.DataFrame, input, filter_rules=None) -> tuple[pd.DataF
             log.append(
                 f"Dropped {removed} row(s) where '{col}' was in: {', '.join(sorted(drop_vals))}."
             )
-            applied_any_filter = True
 
     if not active_filter_rules:
         log.append("Value filtering skipped.")
-
-    # Reconsider schema: coerce string columns that can parse entirely as numeric
-    recasted = []
-    for col in cleaned.select_dtypes(include=["object", "string"]).columns:
-        converted = pd.to_numeric(cleaned[col], errors="coerce")
-        original_notna = cleaned[col].notna()
-        if converted[original_notna].notna().all():
-            cleaned[col] = converted
-            recasted.append(col)
-    if recasted:
-        log.append(
-            f"Recast {len(recasted)} column(s) to numeric after cleaning: {', '.join(recasted)}."
-        )
 
     log.append(
         f"Final dataset shape: {cleaned.shape[0]:,} row(s) × {cleaned.shape[1]:,} column(s)."
@@ -692,3 +745,8 @@ def get_numeric_columns(df: pd.DataFrame) -> list[str]:
 def get_categorical_columns(df: pd.DataFrame) -> list[str]:
     """Return categorical columns for UI selection controls."""
     return _get_categorical_columns(df)
+
+def get_categorical_columns(df: pd.DataFrame) -> list[str]:
+    """Return categorical columns for UI selection controls."""
+    return _get_categorical_columns(df)
+    
