@@ -333,7 +333,7 @@ navbar_content = ui.page_navbar(
                     ohe_ui("ohe"),
                 ),
                 ui.accordion_panel(
-                    "Log Transformation",
+                    "Log2 Transformation",
                     norm_ui("norm"),
                 ),
                 open=True,

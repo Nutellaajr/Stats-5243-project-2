@@ -372,7 +372,7 @@ def binning_ui():
         ),
         ui.output_ui("hist_section"),
         ui.div(
-            ui.tags.label("Cutoffs (comma-separated)", {"class": "input-label"}),
+            ui.tags.label("Cutoffs (separate with a single comma)", {"class": "input-label"}),
             ui.input_text("cutoff_input", None, placeholder="e.g. 20,30,40,50"),
         ),
         ui.layout_columns(
@@ -814,7 +814,7 @@ def norm_ui():
         ),
         ui.output_ui("hist_section"),
         ui.layout_columns(
-            ui.input_action_button("add_norm", "Apply Log Transformation",
+            ui.input_action_button("add_norm", "Apply Log2 Transformation",
                                    class_="btn btn-primary mt-2"),
             col_widths=[6],
         ),
@@ -829,7 +829,8 @@ import numpy as np
 
 
 def _apply_log_transform(df: pd.DataFrame, op: dict) -> pd.DataFrame:
-    df[op["new_col"]] = np.log2(df[op["field"]])
+    series = df[op["field"]]
+    df[op["new_col"]] = np.where(series > 0, np.log2(series.where(series > 0)), np.nan)
     return df
 
 
@@ -861,25 +862,37 @@ def norm_server(input, output, session, data):
         col = input.field_menu()
         if not col:
             return ui.div()
-        return ui.layout_columns(
-            ui.div(
-                ui.tags.label("Original", {"class": "input-label"}),
-                ui.output_plot("hist_original"),
-            ),
-            ui.div(
-                ui.tags.label("Log transformation preview", {"class": "input-label"}),
-                ui.output_plot("hist_transformed"),
-            ),
-            ui.div(
-                ui.tags.label("Preview bins", {"class": "input-label"}),
-                ui.input_radio_buttons(
-                    "hist_bins", None,
-                    choices={"5": "5", "20": "20", "50": "50", "100": "100"},
-                    selected="20",
-                    inline=True,
+        df = data()
+        non_positive_note = ui.div()
+        if df is not None and col in df.columns:
+            n_non_pos = int((df[col].dropna() <= 0).sum())
+            if n_non_pos > 0:
+                non_positive_note = ui.div(
+                    {"style": "color: var(--bs-warning-text-emphasis); font-size: 12px; margin-bottom: 6px;"},
+                    f"Note: {n_non_pos} row(s) with values <= 0 cannot be log2-transformed and will be set to NA in the new column."
+                )
+        return ui.div(
+            non_positive_note,
+            ui.layout_columns(
+                ui.div(
+                    ui.tags.label("Original", {"class": "input-label"}),
+                    ui.output_plot("hist_original"),
                 ),
+                ui.div(
+                    ui.tags.label("Log transformation preview", {"class": "input-label"}),
+                    ui.output_plot("hist_transformed"),
+                ),
+                ui.div(
+                    ui.tags.label("Preview bins", {"class": "input-label"}),
+                    ui.input_radio_buttons(
+                        "hist_bins", None,
+                        choices={"5": "5", "20": "20", "50": "50", "100": "100"},
+                        selected="20",
+                        inline=True,
+                    ),
+                ),
+                col_widths=[4, 4, 4],
             ),
-            col_widths=[4, 4, 4],
         )
 
     @output
@@ -909,7 +922,7 @@ def norm_server(input, output, session, data):
         bins        = int(input.hist_bins())
         fig, ax     = plt.subplots()
         ax.hist(transformed, bins=bins, color="steelblue")
-        ax.set_xlabel(f"{col} (log₂)")
+        ax.set_xlabel(f"{col} (log2)")
         ax.set_ylabel("Count")
         return fig
 
@@ -937,15 +950,11 @@ def norm_server(input, output, session, data):
         if any(op["new_col"] == new_col for op in confirmed_ops.get()):
             error_msg.set(f"A rule writing to '{new_col}' already exists.")
             return
-        if df is not None and col in df.columns and (df[col].dropna() <= 0).any():
-            error_msg.set(f"'{col}' contains values ≤ 0. log₂ is undefined for non-positive values.")
-            return
-
         confirmed_ops.set(confirmed_ops.get() + [{
             "id":      str(uuid.uuid4()).replace("-", "_"),
             "field":   col,
             "new_col": new_col,
-            "label":   f"{col} → {new_col} (log₂)",
+            "label":   f"{col} → {new_col}",
         }])
 
     @output
