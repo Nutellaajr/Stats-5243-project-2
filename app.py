@@ -293,11 +293,32 @@ navbar_content = ui.page_navbar(
         "Cleaning",
         cleaning_ui()
     ),
+
+
     ui.nav_panel(
         "Feature Engineering",
         ui.div(
             {"class": "main-container"},
-            ui.h2("Feature Engineering", {"class": "section-title"}),
+            ui.div(
+                {
+                    "style": (
+                        "display:flex; justify-content:space-between; "
+                        "align-items:center; gap:12px;"
+                    )
+                },
+                ui.h2("Feature Engineering", {"class": "section-title", "style": "margin-bottom:0;"}),
+                ui.input_action_button(
+                    "fe_help_btn",
+                    "?",
+                    class_="btn btn-sm",
+                    style=(
+                        "width:38px; height:38px; padding:0; "
+                        "border:none; background:transparent; box-shadow:none; "
+                        "font-weight:800; font-size:24px; line-height:1; "
+                        "color:#374151;"
+                    ),
+                ),
+            ),
             ui.accordion(
                 ui.accordion_panel(
                     "Numerical Field Transformation (Map)",
@@ -317,6 +338,9 @@ navbar_content = ui.page_navbar(
                 ),
                 open=True,
             ),
+
+
+
             ui.layout_columns(
                 ui.card(
                     ui.card_header("Feature Engineered Data Preview"),
@@ -344,6 +368,103 @@ app_ui = ui.page_fluid(
 
 
 def server(input, output, session):
+
+    @reactive.effect
+    @reactive.event(input.fe_help_btn)
+    def _show_fe_help_modal():
+        ui.modal_show(
+            ui.modal(
+                ui.div(
+                    ui.h4("Feature Engineering Guide"),
+                    ui.p(
+                        "This module helps you create new variables from the cleaned dataset. "
+                        "Each tool applies transformations interactively, and the preview table "
+                        "shows the current feature-engineered result."
+                    ),
+
+                    ui.hr(),
+
+                    ui.h5("1. Numerical Field Transformation (Map)"),
+                    ui.p("Purpose: Create a new field based on a condition applied to one numeric variable."),
+                    ui.tags.ul(
+                        ui.tags.li("Choose a numeric field."),
+                        ui.tags.li("Choose a comparison operator such as <, >, =, <=, or >=."),
+                        ui.tags.li("Compare the field to mean, median, or a custom value."),
+                        ui.tags.li("Enter a new field name and the value to assign when the condition is true."),
+                        ui.tags.li("Click Add rule to create the transformation."),
+                    ),
+                    ui.p(
+                        "Example: If income > mean, then create a new variable such as high_income = True."
+                    ),
+
+                    ui.hr(),
+
+                    ui.h5("2. Binning"),
+                    ui.p("Purpose: Convert a numeric variable into grouped categories."),
+                    ui.tags.ul(
+                        ui.tags.li("Choose a numeric field."),
+                        ui.tags.li("Check the displayed minimum and maximum values."),
+                        ui.tags.li("Enter cutoffs separated by commas."),
+                        ui.tags.li("Enter a new field name for the binned variable."),
+                        ui.tags.li("Click Apply Binning to create the grouped feature."),
+                    ),
+                    ui.p(
+                        "Example: Age can be converted into groups such as 13-20, 21-30, and 31-40."
+                    ),
+
+                    ui.hr(),
+
+                    ui.h5("3. One-Hot Encoding"),
+                    ui.p("Purpose: Convert one categorical variable into multiple indicator columns."),
+                    ui.tags.ul(
+                        ui.tags.li("Choose a field to encode."),
+                        ui.tags.li("Click Apply One-Hot."),
+                        ui.tags.li("A new boolean column will be created for each unique category."),
+                    ),
+                    ui.p(
+                        "Example: A variable named color may become color_is_red, color_is_blue, and color_is_green."
+                    ),
+
+                    ui.hr(),
+
+                    ui.h5("4. Log Transformation"),
+                    ui.p("Purpose: Apply a log2 transformation to a numeric variable."),
+                    ui.tags.ul(
+                        ui.tags.li("Choose a numeric field."),
+                        ui.tags.li("Enter a new field name for the transformed variable."),
+                        ui.tags.li("Use the preview histograms to compare the original and transformed distributions."),
+                        ui.tags.li("Click Apply Log Transformation to create the new feature."),
+                    ),
+                    ui.p(
+                        "Note: Log transformation only works for positive values. Variables with zero or negative values cannot be transformed directly."
+                    ),
+
+                    ui.hr(),
+
+                    ui.h5("How to Use the Module"),
+                    ui.tags.ul(
+                        ui.tags.li("Start from the cleaned dataset."),
+                        ui.tags.li("Apply one or more feature engineering tools."),
+                        ui.tags.li("Keep useful rules checked in the Applied Rules list."),
+                        ui.tags.li("Use the preview table to inspect the current result."),
+                        ui.tags.li("Use Locate buttons to quickly find newly created columns in the preview."),
+                    ),
+
+                    ui.hr(),
+
+                    ui.h5("Tips"),
+                    ui.tags.ul(
+                        ui.tags.li("Use clear, descriptive names for new variables."),
+                        ui.tags.li("Create features step by step and check the preview after each change."),
+                        ui.tags.li("Binning and log transformation are useful for reshaping numeric distributions."),
+                        ui.tags.li("One-hot encoding is useful before modeling categorical variables."),
+                    ),
+                ),
+                title="Feature Engineering Help",
+                easy_close=True,
+                size="l",
+            )
+        )
     @reactive.calc
     def dataset():
         source = input.data_source()

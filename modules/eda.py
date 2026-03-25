@@ -52,7 +52,24 @@ def eda_ui():
     """
     return ui.div(
         {"class": "main-container"},
-        ui.h2("Exploratory Data Analysis", {"class": "section-title"}),
+        ui.div(
+            {
+                "style": (
+                    "display:flex; justify-content:space-between; "
+                    "align-items:center; gap:12px;"
+                )
+            },
+            ui.h2("Exploratory Data Analysis", {"class": "section-title", "style": "margin-bottom:0;"}),
+            ui.input_action_button(
+                "eda_help_btn",
+                "?",
+                class_="btn btn-sm",
+                style=("width:38px; height:38px; padding:0; "
+                        "border:none; background:transparent; box-shadow:none; "
+                        "font-weight:800; font-size:24px; line-height:1; "
+                        "color:#374151;"),
+            ),
+        ),
         ui.navset_card_tab(
             
             
@@ -63,22 +80,8 @@ def eda_ui():
                         ui.div(
                             {"class": "eda-controls"},
                             # 1) Dataset selector
-                            ui.input_select(
-                                "summary_dataset",
-                                "Dataset",
-                                {
-                                    "raw": "Raw Data",
-                                    "cleaned": "Cleaned Data",
-                                    "feature_engineered": "Feature Engineered Data",
-                                },
-                                selected="raw",
-                            ),
-                            # 2) Numeric variables to summarize
-                            # ui.div(
-                            #     {"class": "eda-var-group"},
-                            #     ui.tags.label("Numeric Variable", {"class": "form-label"}),
-                            #     ui.output_ui("summary_numeric_vars_ui"),
-                            # ),
+                            
+                            
                             ui.div(
                                     {"class": "eda-var-group"},
                                     ui.tags.label("Numeric Variable", {"class": "form-label"}),
@@ -179,16 +182,7 @@ def eda_ui():
                     ui.sidebar(
                         ui.div(
                             {"class": "eda-controls"},
-                            ui.input_select(
-                                "categorical_summary_dataset",
-                                "Dataset",
-                                {
-                                    "raw": "Raw Data",
-                                    "cleaned": "Cleaned Data",
-                                    "feature_engineered": "Feature Engineered Data",
-                                },
-                                selected="raw",
-                            ),
+                            
                             ui.div(
                                 {"class": "eda-var-group"},
                                 ui.tags.label("Categorical Variable", {"class": "form-label"}),
@@ -246,16 +240,7 @@ def eda_ui():
                     ui.sidebar(
                         ui.div(
                             {"class": "eda-controls"},
-                            ui.input_select(
-                                "visualization_dataset",
-                                "Dataset",
-                                {
-                                    "raw": "Raw Data",
-                                    "cleaned": "Cleaned Data",
-                                    "feature_engineered": "Feature Engineered Data",
-                                },
-                                selected="raw",
-                            ),
+                            
                             ui.input_select(
                                 "visualization_plot_type",
                                 "Plot Type",
@@ -324,14 +309,14 @@ def eda_ui():
             ui.div(
                 {"class": "eda-controls"},
                 ui.input_select(
-                    "correlation_dataset",
-                    "Dataset",
+                    "correlation_plot_type",
+                    "Plot Type",
                     {
-                        "raw": "Raw Data",
-                        "cleaned": "Cleaned Data",
-                        "feature_engineered": "Feature Engineered Data",
+                        "": "Please select a plot type",
+                        "scatter_matrix": "Scatterplot Matrix",
+                        "heatmap": "Correlation Heatmap",
                     },
-                    selected="raw",
+                    selected="",
                 ),
                 ui.div(
                     {"class": "eda-var-group"},
@@ -347,16 +332,16 @@ def eda_ui():
                     options={"placeholder": "Optional: choose one or more numeric variables"},
                 ),
                 ui.output_ui("correlation_filter_value_ui"),
-                ui.input_select(
-                    "correlation_plot_type",
-                    "Plot Type",
-                    {
-                        "": "Please select a plot type",
-                        "scatter_matrix": "Scatterplot Matrix",
-                        "heatmap": "Correlation Heatmap",
-                    },
-                    selected="",
-                ),
+                # ui.input_select(
+                #     "correlation_plot_type",
+                #     "Plot Type",
+                #     {
+                #         "": "Please select a plot type",
+                #         "scatter_matrix": "Scatterplot Matrix",
+                #         "heatmap": "Correlation Heatmap",
+                #     },
+                #     selected="",
+                # ),
                 ui.input_text(
                     "correlation_plot_title",
                     "Title",
@@ -396,15 +381,7 @@ def eda_ui():
     )
 
 
-def pick_eda_dataset(choice, raw_df, cleaned_df_value, fe_df):
-    """
-    Return the dataset selected in the EDA tab.
-    """
-    if choice == "cleaned":
-        return cleaned_df_value
-    if choice == "feature_engineered":
-        return fe_df
-    return raw_df
+
 
 
 def is_numeric_series(series):
@@ -1203,44 +1180,117 @@ def eda_server(input, output, session, raw_data, cleaned_data, fe_data):
     fe_data : reactive calc
         Returns feature-engineered dataset
     """
-    selected_categorical_token = reactive.Value(None)
- 
+    
 
+
+ 
+    @reactive.effect
+    @reactive.event(input.eda_help_btn)
+    def _show_eda_help_modal():
+        ui.modal_show(
+            ui.modal(
+                ui.div(
+                    ui.h4("EDA Module Guide"),
+                    ui.p(
+                        "This EDA module helps users explore the feature-engineered dataset through "
+                        "summary tables, visualizations, and correlation analysis."
+                    ),
+
+                    ui.hr(),
+
+                    ui.h5("1. Numerical Summary Table"),
+                    ui.p("Purpose: View descriptive statistics for selected numeric variables."),
+                    ui.tags.ul(
+                        ui.tags.li("Select one or more numeric variables."),
+                        ui.tags.li("Optional: use Group by to compare results across categories."),
+                        ui.tags.li("Optional: use Filter Variables to restrict the data shown."),
+                        ui.tags.li("Click Create Table to generate the summary table."),
+                    ),
+                    ui.p(
+                        "Notes: This tab is useful for checking center, spread, and range of numeric variables. "
+                        "If no variable is selected, the table will be empty."
+                    ),
+
+                    ui.hr(),
+
+                    ui.h5("2. Categorical Summary"),
+                    ui.p("Purpose: Summarize a categorical variable by category count and percentage."),
+                    ui.tags.ul(
+                        ui.tags.li("Select one categorical variable."),
+                        ui.tags.li("Set Top N to limit how many categories are displayed."),
+                        ui.tags.li("Choose which statistics to display: Count and/or Percentage."),
+                        ui.tags.li("Click Create Table to generate the summary."),
+                    ),
+                    ui.p(
+                        "Notes: This tab is useful for checking category balance, frequency, and rare levels. "
+                        "Top N is sorted by count."
+                    ),
+
+                    ui.hr(),
+
+                    ui.h5("3. Visualization Analyze"),
+                    ui.p("Purpose: Create plots to examine the distribution and patterns of variables."),
+                    ui.tags.ul(
+                        ui.tags.li("Choose a plot type first."),
+                        ui.tags.li("Then choose the required variable(s) for that plot."),
+                        ui.tags.li("Optional: use Group by when available."),
+                        ui.tags.li("Optional: use Filter Variables to limit the data before plotting."),
+                        ui.tags.li("Edit the Title box if you want a custom plot title."),
+                        ui.tags.li("Use Export PNG to save the current plot."),
+                    ),
+                    ui.p(
+                        "Notes: Different plot types require different inputs. "
+                        "For example, histogram and density need a numeric variable, "
+                        "while bar plot uses a categorical variable."
+                    ),
+
+                    ui.hr(),
+
+                    ui.h5("4. Correlation"),
+                    ui.p("Purpose: Explore relationships among numeric variables."),
+                    ui.tags.ul(
+                        ui.tags.li("Select numeric variables to include in the analysis."),
+                        ui.tags.li("Choose Scatterplot Matrix or Correlation Heatmap."),
+                        ui.tags.li("Optional: use Filter Variables to restrict the numeric range."),
+                        ui.tags.li("Edit the Title box if needed."),
+                        ui.tags.li("Use Export PNG to save the current figure."),
+                    ),
+                    ui.p(
+                        "Notes: Heatmap requires at least two numeric variables. "
+                        "Scatterplot Matrix is easier to read when the number of variables is not too large."
+                    ),
+
+                    ui.hr(),
+
+                    ui.h5("General Tips"),
+                    ui.tags.ul(
+                        ui.tags.li("All EDA results are based on the current feature-engineered dataset."),
+                        ui.tags.li("Filters affect the rows used in tables and plots."),
+                        
+                        ui.tags.li("Start with summary tabs, then move to visualization and correlation for deeper analysis."),
+                    ),
+                ),
+                title="EDA Help",
+                easy_close=True,
+                size="l",
+            )
+        )
+    
     @reactive.calc
     def selected_eda_df():
         """
-        Return the dataset currently selected by the user.
+        Use feature engineered data directly for EDA.
         """
-        return pick_eda_dataset(
-            input.summary_dataset(),
-            raw_data(),
-            cleaned_data(),
-            fe_data(),
-        )
+        return fe_data()
 
     @reactive.calc
     def selected_categorical_eda_df():
-        """
-        Return the dataset currently selected in the categorical summary tab.
-        """
-        return pick_eda_dataset(
-            input.categorical_summary_dataset(),
-            raw_data(),
-            cleaned_data(),
-            fe_data(),
-        )
+        return fe_data()
+
 
     @reactive.calc
     def selected_visualization_df():
-        """
-        Return the dataset currently selected in the visualization tab.
-        """
-        return pick_eda_dataset(
-            input.visualization_dataset(),
-            raw_data(),
-            cleaned_data(),
-            fe_data(),
-        )
+        return fe_data()
 
     @output
     @render.ui
@@ -1584,20 +1634,14 @@ def eda_server(input, output, session, raw_data, cleaned_data, fe_data):
         """
         Small status text shown at the bottom of the numerical summary sidebar.
         """
-        selected_name = {
-            "raw": "Raw Data",
-            "cleaned": "Cleaned Data",
-            "feature_engineered": "Feature Engineered Data",
-        }.get(input.summary_dataset() or "raw", "Raw Data")
-
         df = selected_eda_df()
         filtered_df = filtered_eda_df()
 
         if df is None:
-            return f"{selected_name} is not available yet."
+            return "Feature Engineered Data is not available yet."
 
         return (
-            f"Dataset: {selected_name} | "
+            f"Dataset in use: Feature Engineered Data | "
             f"Rows before filter: {df.shape[0]:,} | "
             f"Rows after filter: {filtered_df.shape[0]:,}"
         )
@@ -1645,89 +1689,32 @@ def eda_server(input, output, session, raw_data, cleaned_data, fe_data):
     @output
     @render.ui
     def categorical_summary_vars_ui():
-        choice_map = categorical_summary_var_choice_map()
+        df = selected_categorical_eda_df()
+        categorical_cols = get_categorical_columns(df)
 
-        if not choice_map:
+        if not categorical_cols:
             return ui.p("No categorical variables available.", class_="text-muted")
 
-        selected_token = selected_categorical_token.get()
-        if selected_token not in choice_map:
-            selected_token = next(iter(choice_map))
-
-        return ui.div(
-            {"class": "eda-var-checkboxes"},
-            *[
-                ui.div(
-                    {"class": "eda-var-option"},
-                    ui.input_checkbox(
-                        f"categorical_summary_var_{token}",
-                        label,
-                        value=(token == selected_token),
-                    ),
-                )
-                for token, label in choice_map.items()
-            ],
+        return ui.input_selectize(
+            "categorical_summary_var",
+            None,
+            choices={"": "Please select a variable", **{col: col for col in categorical_cols}},
+            selected="",
+            multiple=False,
+            options={"placeholder": "Select one categorical variable"},
         )
 
-    @reactive.effect
-    def _enforce_single_categorical_summary_var():
-        """
-        Allow only one categorical variable checkbox to remain selected.
-        """
-        choice_map = categorical_summary_var_choice_map()
-        tokens = list(choice_map.keys())
 
-        if not tokens:
-            selected_categorical_token.set(None)
-            return
-
-        current_values = {}
-        for token in tokens:
-            input_id = f"categorical_summary_var_{token}"
-            try:
-                current_values[token] = bool(input[input_id]())
-            except Exception:
-                current_values[token] = False
-
-        previous_token = selected_categorical_token.get()
-        selected_tokens = [token for token, is_checked in current_values.items() if is_checked]
-
-        if not selected_tokens:
-            keep_token = previous_token if previous_token in tokens else tokens[0]
-            ui.update_checkbox(
-                f"categorical_summary_var_{keep_token}",
-                value=True,
-                session=session,
-            )
-            selected_categorical_token.set(keep_token)
-            return
-
-        if len(selected_tokens) == 1:
-            selected_categorical_token.set(selected_tokens[0])
-            return
-
-        keep_token = next(
-            (token for token in selected_tokens if token != previous_token),
-            selected_tokens[0],
-        )
-
-        for token in tokens:
-            ui.update_checkbox(
-                f"categorical_summary_var_{token}",
-                value=(token == keep_token),
-                session=session,
-            )
-
-        selected_categorical_token.set(keep_token)
 
     @reactive.calc
     def selected_categorical_summary_var():
         """
         Return the selected categorical column name.
         """
-        choice_map = categorical_summary_var_choice_map()
-        selected_token = selected_categorical_token.get()
-        return choice_map.get(selected_token)
+        selected_col = input.categorical_summary_var()
+        if not selected_col:
+            return None
+        return selected_col
 
     @reactive.calc
     def categorical_unique_count():
@@ -1827,24 +1814,18 @@ def eda_server(input, output, session, raw_data, cleaned_data, fe_data):
         """
         Status text for the categorical summary sidebar.
         """
-        selected_name = {
-            "raw": "Raw Data",
-            "cleaned": "Cleaned Data",
-            "feature_engineered": "Feature Engineered Data",
-        }.get(input.categorical_summary_dataset() or "raw", "Raw Data")
-
         df = selected_categorical_eda_df()
         selected_col = selected_categorical_summary_var()
         n_categories = categorical_unique_count()
 
         if df is None:
-            return f"{selected_name} is not available yet."
+            return "Feature Engineered Data is not available yet."
 
         if selected_col is None:
-            return f"Dataset: {selected_name} | No categorical variable selected."
+            return "Dataset in use: Feature Engineered Data | No categorical variable selected."
 
         return (
-            f"Dataset: {selected_name} | "
+            f"Dataset in use: Feature Engineered Data | "
             f"Variable: {selected_col} | "
             f"Categories: {n_categories:,} | "
             f"Rows: {df.shape[0]:,}"
@@ -2273,18 +2254,12 @@ def eda_server(input, output, session, raw_data, cleaned_data, fe_data):
         """
         Status text shown at the bottom of the visualization sidebar.
         """
-        selected_name = {
-            "raw": "Raw Data",
-            "cleaned": "Cleaned Data",
-            "feature_engineered": "Feature Engineered Data",
-        }.get(input.visualization_dataset() or "raw", "Raw Data")
-
         df = selected_visualization_df()
         filtered_df = filtered_visualization_df()
         plot_type = input.visualization_plot_type()
 
         if df is None:
-            return f"{selected_name} is not available yet."
+            return "Feature Engineered Data is not available yet."
 
         plot_label = {
             "": "None",
@@ -2296,7 +2271,7 @@ def eda_server(input, output, session, raw_data, cleaned_data, fe_data):
         }.get(plot_type or "", "None")
 
         return (
-            f"Dataset: {selected_name} | "
+            f"Dataset in use: Feature Engineered Data | "
             f"Plot type: {plot_label} | "
             f"Rows before filter: {df.shape[0]:,} | "
             f"Rows after filter: {filtered_df.shape[0]:,}"
@@ -2330,15 +2305,7 @@ def eda_server(input, output, session, raw_data, cleaned_data, fe_data):
 
     @reactive.calc
     def selected_correlation_df():
-        """
-        Return the dataset currently selected in the correlation tab.
-        """
-        return pick_eda_dataset(
-            input.correlation_dataset(),
-            raw_data(),
-            cleaned_data(),
-            fe_data(),
-        )
+        return fe_data()
 
 
     @reactive.calc
@@ -2565,12 +2532,6 @@ def eda_server(input, output, session, raw_data, cleaned_data, fe_data):
         """
         Status text shown at the bottom of the correlation sidebar.
         """
-        selected_name = {
-            "raw": "Raw Data",
-            "cleaned": "Cleaned Data",
-            "feature_engineered": "Feature Engineered Data",
-        }.get(input.correlation_dataset() or "raw", "Raw Data")
-
         df = selected_correlation_df()
         filtered_df = filtered_correlation_df()
         plot_type = input.correlation_plot_type()
@@ -2578,7 +2539,7 @@ def eda_server(input, output, session, raw_data, cleaned_data, fe_data):
         filter_vars = list(input.correlation_filter_vars() or [])
 
         if df is None:
-            return f"{selected_name} is not available yet."
+            return "Feature Engineered Data is not available yet."
 
         plot_label = {
             "": "None",
@@ -2593,7 +2554,7 @@ def eda_server(input, output, session, raw_data, cleaned_data, fe_data):
             extra_note = " | Select at most 6 numeric variables for readability."
 
         return (
-            f"Dataset: {selected_name} | "
+            f"Dataset in use: Feature Engineered Data | "
             f"Plot type: {plot_label} | "
             f"Numeric variables selected: {len(numeric_vars)} | "
             f"Filter variables: {len(filter_vars)} | "
